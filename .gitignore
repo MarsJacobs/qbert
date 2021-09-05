@@ -143,3 +143,10 @@ models/*.pt
 outputs
 glue_data
 .neptune
+
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+LICENSE
+SST-2
+STS-B
+.github

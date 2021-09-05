@@ -462,7 +462,7 @@ class quantization(nn.Module):
                     #grad_factor = 1
                 else:
                     grad_factor = 1
-                import pdb; pdb.set_trace()
+                
                 #clip_val = dorefa.GradientScale(self.clip_val.abs(), self.grad_factor)
                 clip_val = dorefa.GradientScale(self.clip_val.abs(), grad_factor)
                 c1, c2= x.shape

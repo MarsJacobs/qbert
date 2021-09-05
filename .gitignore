@@ -138,7 +138,8 @@ checkpoints*
 dumps
 
 output_tensorboard
-*.pt
+models/roberta.base
+models/*.pt
 outputs
 glue_data
 .neptune

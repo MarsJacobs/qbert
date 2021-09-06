@@ -41,14 +41,17 @@ class SentencePredictionCriterion(FairseqCriterion):
             and self.classification_head_name in model.classification_heads
         ), 'model must provide sentence classification head for --criterion=sentence_prediction'
         
+        
         logits, _ = model(
             **sample['net_input'],
             features_only=True,
             classification_head_name=self.classification_head_name,
         )
+
         targets = model.get_targets(sample, [logits]).view(-1)
         sample_size = targets.numel()
 
+        # MSKIM Loss Calculation 
         if not self.regression_target:
             lprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
             loss = F.nll_loss(lprobs, targets, reduction='sum')

@@ -458,7 +458,7 @@ class quantization(nn.Module):
                 
                 # Add Gradient Scaling MSKIM
                 if self.senqnn_config['gradient_scaling']:
-                    grad_factor = 1.0 / (((self.level_num.item() -1) * x.numel()) ** 0.5)
+                    grad_factor = 1 / (((self.level_num.item() -1) * x.numel()) ** 0.5)
                     #grad_factor = 1
                 else:
                     grad_factor = 1

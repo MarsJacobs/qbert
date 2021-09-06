@@ -24,7 +24,6 @@ from fairseq.optim import lr_scheduler
 
 logger = logging.getLogger(__name__)
 
-
 class Trainer(object):
     """Main class for data parallel training.
 
@@ -450,6 +449,7 @@ class Trainer(object):
             try:
                 with maybe_no_sync():
                     # forward and backward
+                    
                     loss, sample_size_i, logging_output = self.task.train_step(
                         sample=sample,
                         model=self.model,
@@ -547,10 +547,9 @@ class Trainer(object):
             run["metrics/lr"].log(self.optimizer.param_groups[0]['lr'])
             run["metrics/Qlr"].log(self.optimizer.param_groups[1]['lr'])
 
-
             with torch.autograd.profiler.record_function("optimizer"):
                 # MSKIM take an optimization step
-                self.optimizer.step()
+                self.optimizer.step() # MSKIM step
 
         except FloatingPointError:
             # re-run the forward and backward pass with hooks attached to print
@@ -621,7 +620,7 @@ class Trainer(object):
 
         metrics.log_stop_time("train_wall")
 
-        return logging_output
+        return logging_output # MSKIM Forward Output
 
     @metrics.aggregate("valid")
     def valid_step(self, sample, raise_oom=False):

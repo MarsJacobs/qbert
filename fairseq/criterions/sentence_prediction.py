@@ -11,6 +11,10 @@ import torch.nn.functional as F
 from fairseq import metrics, utils
 from fairseq.criterions import FairseqCriterion, register_criterion
 
+def soft_cross_entropy(predicts, targets):
+    student_likelihood = torch.nn.functional.log_softmax(predicts, dim=-1)
+    targets_prob = torch.nn.functional.softmax(targets, dim=-1)
+    return (- targets_prob * student_likelihood).mean()
 
 @register_criterion('sentence_prediction')
 class SentencePredictionCriterion(FairseqCriterion):
@@ -28,7 +32,7 @@ class SentencePredictionCriterion(FairseqCriterion):
                             help='name of the classification head to use')
         # fmt: on
 
-    def forward(self, model, sample, reduce=True):
+    def forward(self, model, sample, model_t=None, reduce=True):
         """Compute the loss for the given sample.
 
         Returns a tuple with three elements:
@@ -40,26 +44,70 @@ class SentencePredictionCriterion(FairseqCriterion):
             hasattr(model, 'classification_heads')
             and self.classification_head_name in model.classification_heads
         ), 'model must provide sentence classification head for --criterion=sentence_prediction'
-        
-        
-        logits, _ = model(
+    
+        student_logits, student_reps, student_atts = model(
             **sample['net_input'],
             features_only=True,
+            return_all_hiddens=True, # MSKIM Make Return all inner states 
             classification_head_name=self.classification_head_name,
         )
 
-        targets = model.get_targets(sample, [logits]).view(-1)
+        loss_kd = 0
+        
+        if model_t is not None:
+            # MSKIM Teacher Inference 
+            with torch.no_grad():
+                teacher_logits, teacher_reps, teacher_atts = model_t(
+                    **sample['net_input'],
+                    features_only=True,
+                    return_all_hiddens=True,
+                    classification_head_name=self.classification_head_name,
+                )
+            
+            # MSKIM DIstillation Start
+            loss_kd = 0
+            cls_loss = 0
+            att_loss = 0
+            rep_loss = 0
+
+            # Prediction Distill
+            if not self.regression_target:
+                cls_loss = soft_cross_entropy(student_logits, teacher_logits)
+            else:
+                cls_loss = F.mse_loss(student_logits, teacher_logits)
+            
+            loss_kd = cls_loss
+
+            # Attention Score Distill
+            for student_att, teacher_att in zip(student_atts, teacher_atts):
+                student_att = torch.where(student_att <= -1e2, torch.zeros_like(student_att).to("cuda"),
+                                            student_att)
+                teacher_att = torch.where(teacher_att <= -1e2, torch.zeros_like(teacher_att).to("cuda"),
+                                            teacher_att)
+                tmp_loss = F.mse_loss(student_att, teacher_att)
+                att_loss += tmp_loss
+            
+            # Transformer Layer Output Distill
+            for student_rep, teacher_rep in zip(student_reps['inner_states'], teacher_reps['inner_states']):
+                tmp_loss = F.mse_loss(student_rep, teacher_rep)
+                rep_loss += tmp_loss
+            
+            loss_kd += att_loss + rep_loss
+        
+        targets = model.get_targets(sample, [student_logits]).view(-1)
         sample_size = targets.numel()
 
         # MSKIM Loss Calculation 
         if not self.regression_target:
-            lprobs = F.log_softmax(logits, dim=-1, dtype=torch.float32)
-            loss = F.nll_loss(lprobs, targets, reduction='sum')
+            lprobs = F.log_softmax(student_logits, dim=-1, dtype=torch.float32)
+            loss_class = F.nll_loss(lprobs, targets, reduction='sum')
         else:
-            logits = logits.view(-1).float()
+            student_logits = student_logits.view(-1).float()
             targets = targets.float()
-            loss = F.mse_loss(logits, targets, reduction='sum')
+            loss_class = F.mse_loss(student_logits, targets, reduction='sum')
 
+        loss = loss_class + loss_kd
+        
         logging_output = {
             'loss': loss.data,
             'ntokens': sample['ntokens'],
@@ -67,7 +115,7 @@ class SentencePredictionCriterion(FairseqCriterion):
             'sample_size': sample_size,
         }
         if not self.regression_target:
-            preds = logits.argmax(dim=1)
+            preds = student_logits.argmax(dim=1)
             logging_output['ncorrect'] = (preds == targets).sum()
             logging_output['false'] = (preds != targets).sum()
             logging_output['tp'] = ((preds == 1) & (targets == 1)).sum()

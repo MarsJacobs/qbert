@@ -182,7 +182,8 @@ class MultiheadAttention(nn.Module):
             and not self.senqnn_config['qkv_quantize']
         ):
             assert key is not None and value is not None
-            return F.multi_head_attention_forward(
+
+            attn, _ = F.multi_head_attention_forward(
                 query,
                 key,
                 value,
@@ -205,6 +206,8 @@ class MultiheadAttention(nn.Module):
                 k_proj_weight=self.k_proj.weight,
                 v_proj_weight=self.v_proj.weight,
             )
+
+            
 
         if incremental_state is not None:
             saved_state = self._get_input_buffer(incremental_state)
@@ -236,7 +239,7 @@ class MultiheadAttention(nn.Module):
             q = self.q_proj(query)
             k = self.k_proj(key)
             v = self.v_proj(value)
-        q *= self.scaling
+        q *= self.scaling # MSKIM sqrt(self.head_dim)
 
         if self.bias_k is not None:
             assert self.bias_v is not None
@@ -367,7 +370,9 @@ class MultiheadAttention(nn.Module):
                 attn_weights = attn_weights.masked_fill(key_padding_mask, float('-inf'))
                 attn_weights = attn_weights.transpose(0, 2)
             attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
-
+        
+        attention_scores = attn_weights # MSKIM for Attention Scores
+        
         if before_softmax:
             return attn_weights, v
 
@@ -395,8 +400,8 @@ class MultiheadAttention(nn.Module):
             if not need_head_weights:
                 # average attention weights over heads
                 attn_weights = attn_weights.mean(dim=0)
-
-        return attn, attn_weights
+        
+        return attn, attention_scores
 
     @staticmethod
     def _append_prev_key_padding_mask(
@@ -434,6 +439,7 @@ class MultiheadAttention(nn.Module):
             )
         else:
             new_key_padding_mask = prev_key_padding_mask
+        
         return new_key_padding_mask
 
     @torch.jit.export

@@ -278,19 +278,22 @@ class TransformerSentenceEncoder(nn.Module):
         x = x.transpose(0, 1)
 
         inner_states = []
+        all_encoder_atts = [] # MSKIM attention scores list
+
         if not last_state_only:
             inner_states.append(x)
         
         for layer in self.layers:
-            x, _ = layer(x, self_attn_padding_mask=padding_mask)
+            x, layer_attn = layer(x, self_attn_padding_mask=padding_mask)
             if not last_state_only:
                 inner_states.append(x)
-        
-        sentence_rep = x[0, :, :]
+                all_encoder_atts.append(layer_attn)
+    
+        sentence_rep = x[0, :, :] # MSKIM Clssification Token.. 
 
         if last_state_only:
             inner_states = [x]
         if self.traceable:
             return torch.stack(inner_states), sentence_rep
         else:
-            return inner_states, sentence_rep
+            return inner_states, sentence_rep, all_encoder_atts

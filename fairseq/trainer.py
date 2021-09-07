@@ -34,7 +34,7 @@ class Trainer(object):
     communication of the gradients across workers.
     """
 
-    def __init__(self, args, task, model, criterion, quantizer=None):
+    def __init__(self, args, task, model, model_t, criterion, quantizer=None):
         self.args = args
         self.task = task
 
@@ -53,6 +53,9 @@ class Trainer(object):
         # copy model and criterion to current device/dtype
         self._criterion = criterion
         self._model = model
+        
+        self.model_t = model_t.to(device=self.device)
+
         if self.tpu:
             import torch_xla.core.xla_model as xm
             self._model = xm.send_cpu_data_to_device(self._model, self.device)
@@ -158,12 +161,14 @@ class Trainer(object):
 
     @property
     def model(self):
+        
         if self._wrapped_model is None:
             if (
                 self.data_parallel_world_size > 1
                 and not self.args.use_bmuf
                 and not self.tpu
             ):
+            
                 self._wrapped_model = models.DistributedFairseqModel(
                     self.args, self._model,
                     process_group=self.data_parallel_process_group
@@ -171,6 +176,23 @@ class Trainer(object):
             else:
                 self._wrapped_model = self._model
         return self._wrapped_model
+
+    # def model_t(self):
+        
+    #     if self._wrapped_model is None:
+    #         if (
+    #             self.data_parallel_world_size > 1
+    #             and not self.args.use_bmuf
+    #             and not self.tpu
+    #         ):
+            
+    #             self._wrapped_model = models.DistributedFairseqModel(
+    #                 self.args, self._model_t,
+    #                 process_group=self.data_parallel_process_group
+    #             )
+    #         else:
+    #             self._wrapped_model = self._model_t
+    #     return self._wrapped_model
 
     @property
     def optimizer(self):
@@ -276,6 +298,10 @@ class Trainer(object):
                 self.get_model().load_state_dict(
                     state["model"], strict=True, args=self.args
                 )
+                self.get_model_t().load_state_dict(
+                    state["model"], strict=True, args=self.args
+                )
+            
                 if utils.has_parameters(self.get_criterion()):
                     self.get_criterion().load_state_dict(
                         state["criterion"], strict=True
@@ -453,6 +479,7 @@ class Trainer(object):
                     loss, sample_size_i, logging_output = self.task.train_step(
                         sample=sample,
                         model=self.model,
+                        model_t = self.model_t,
                         criterion=self.criterion,
                         optimizer=self.optimizer,
                         update_num=self.get_num_updates(),
@@ -702,6 +729,10 @@ class Trainer(object):
     def get_model(self):
         """Get the (non-wrapped) model instance."""
         return self._model
+
+    def get_model_t(self):
+        """Get the (non-wrapped) model instance."""
+        return self.model_t
 
     def get_criterion(self):
         """Get the (non-wrapped) criterion instance."""

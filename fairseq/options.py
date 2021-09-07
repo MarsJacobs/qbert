@@ -275,6 +275,7 @@ def get_parser(desc, default_task="translation"):
     parser.add_argument('--senqnn_config', default='', help='SENQNN: Quantization Config') #MSKIM add args for senqnn
     parser.add_argument('--lr_scale', type=int, default=1) #MSKIM add args for clip lr                    
     parser.add_argument('--clip_wd', type=float, default=0.1)
+    parser.add_argument('--teacher', type=str, default="none")
     
     from fairseq.registry import REGISTRIES
     for registry_name, REGISTRY in REGISTRIES.items():

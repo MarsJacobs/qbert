@@ -113,15 +113,16 @@ class RobertaModel(FairseqEncoderModel):
         return cls(args, encoder)
 
     def forward(self, src_tokens, features_only=False, return_all_hiddens=False, classification_head_name=None, **kwargs):
-        #import pdb; pdb.set_trace()
+        
         if classification_head_name is not None:
             features_only = True
 
-        x, extra = self.encoder(src_tokens, features_only, return_all_hiddens, **kwargs)
+        x, inner_states, all_encoder_atts = self.encoder(src_tokens, features_only, return_all_hiddens, **kwargs)
+        # extra contains all inner states
 
         if classification_head_name is not None:
             x = self.classification_heads[classification_head_name](x)
-        return x, extra
+        return x, inner_states, all_encoder_atts
 
     def get_normalized_probs(self, net_output, log_probs, sample=None):
         """Get normalized probabilities (or log probs) from a net's output."""
@@ -336,18 +337,19 @@ class RobertaEncoder(FairseqEncoder):
                   is a list of hidden states. Note that the hidden
                   states have shape `(src_len, batch, vocab)`.
         """
-        x, extra = self.extract_features(src_tokens, return_all_hiddens=return_all_hiddens)
+        
+        x, inner_states, all_encoder_atts = self.extract_features(src_tokens, return_all_hiddens=return_all_hiddens)
         if not features_only:
             x = self.output_layer(x, masked_tokens=masked_tokens)
-        return x, extra
+        return x, inner_states, all_encoder_atts
 
     def extract_features(self, src_tokens, return_all_hiddens=False, **unused):
-        inner_states, _ = self.sentence_encoder(
+        inner_states, _, all_encoder_atts = self.sentence_encoder(
             src_tokens,
             last_state_only=not return_all_hiddens,
         )
         features = inner_states[-1].transpose(0, 1)  # T x B x C -> B x T x C
-        return features, {'inner_states': inner_states if return_all_hiddens else None}
+        return features, {'inner_states': inner_states if return_all_hiddens else None}, all_encoder_atts # MSKIM Attention Score RoBERTa Encoder Return
 
     def output_layer(self, features, masked_tokens=None, **unused):
         return self.lm_head(features, masked_tokens)

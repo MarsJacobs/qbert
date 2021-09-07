@@ -128,15 +128,27 @@ def main(args):
         task.load_dataset(valid_sub_split, combine=False, epoch=1)
 
     # Build model and criterion
-    model = task.build_model(args, QuantOps)
+    dict_senqnn_config= dict(**literal_eval(args.senqnn_config))
+
+    if args.teacher == "none":
+        senqnn_config = dict_senqnn_config
+        model = task.build_model(args, QuantOps)
+
+    elif args.teacher == "self":
+        senqnn_config = dict_senqnn_config
+        model = task.build_model(args, QuantOps)
+        
+        dict_senqnn_config['quantize'] = False
+        args.senqnn_config = str(dict_senqnn_config)
+        model_t = task.build_model(args, QuantOps) # Teacher Model 
+    
     criterion = task.build_criterion(args)
     
     # PACT Quantization Initialization
-    senqnn_config = dict(**literal_eval(args.senqnn_config))
-    for name, module in model.named_modules():
-        if isinstance(module, (QuantOps.QLinear, QuantOps.QEmbedding)):
-            module.initialize(senqnn_config['nbits_w'], senqnn_config['weight_clip_init_val'], -1*senqnn_config['weight_clip_init_val'])
-        #if isinstance(module, QuantOps.LSQLinear):
+    if senqnn_config['method'] == 1:
+        for name, module in model.named_modules():
+            if isinstance(module, (QuantOps.QLinear, QuantOps.QEmbedding)):
+                module.initialize(senqnn_config['nbits_w'], senqnn_config['weight_clip_init_val'], -1*senqnn_config['weight_clip_init_val'])
 
 
     #logger.info(model)
@@ -166,7 +178,7 @@ def main(args):
 
     # Build trainer
     if args.model_parallel_size == 1:
-        trainer = Trainer(args, task, model, criterion, quantizer)
+        trainer = Trainer(args, task, model, model_t, criterion, quantizer)
     else:
         trainer = MegatronTrainer(args, task, model, criterion)
 

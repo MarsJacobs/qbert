@@ -64,6 +64,7 @@ def arg_parse():
     parser.add_argument('--senqnn_config', default='', help='SENQNN: Quantization Config')
     parser.add_argument('--lr_scale', type=int, default=1)
     parser.add_argument('--clip_wd', type=float, default=0.1)
+    parser.add_argument('--teacher', type=str, default="none")
     
 
     args = parser.parse_args()
@@ -74,6 +75,7 @@ task = args.task
 senqnn_config = args.senqnn_config
 lr_scale = args.lr_scale
 clip_wd = args.clip_wd
+teacher = args.teacher
 
 ######################## Task specs ##########################
 
@@ -212,7 +214,8 @@ subprocess_args = [
     '--dropout', str(args.dropout), '--attention-dropout', str(args.attn_dropout),
     '--senqnn_config', senqnn_config,
     '--lr_scale', str(lr_scale),
-    '--clip_wd', str(clip_wd)
+    '--clip_wd', str(clip_wd),
+    '--teacher', teacher
 ]
 
 if args.no_save:

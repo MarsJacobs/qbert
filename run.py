@@ -77,6 +77,7 @@ senqnn_config = args.senqnn_config
 lr_scale = args.lr_scale
 clip_wd = args.clip_wd
 teacher = args.teacher
+kd = args.kd
 
 ######################## Task specs ##########################
 
@@ -220,7 +221,8 @@ subprocess_args = [
     '--senqnn_config', senqnn_config,
     '--lr_scale', str(lr_scale),
     '--clip_wd', str(clip_wd),
-    '--teacher', teacher
+    '--teacher', teacher,
+    '--kd', kd 
 ]
 
 if args.no_save:

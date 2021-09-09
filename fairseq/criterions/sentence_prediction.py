@@ -12,9 +12,13 @@ from fairseq import metrics, utils
 from fairseq.criterions import FairseqCriterion, register_criterion
 
 def soft_cross_entropy(predicts, targets):
+    
     student_likelihood = torch.nn.functional.log_softmax(predicts, dim=-1)
     targets_prob = torch.nn.functional.softmax(targets, dim=-1)
-    return (- targets_prob * student_likelihood).mean()
+    cls_loss = (torch.sum((- targets_prob * student_likelihood), dim=-1).mean()) # MSKIM 
+    cls_loss_2 = (- targets_prob * student_likelihood).mean()
+    
+    return cls_loss
 
 @register_criterion('sentence_prediction')
 class SentencePredictionCriterion(FairseqCriterion):
@@ -105,7 +109,7 @@ class SentencePredictionCriterion(FairseqCriterion):
                 
         targets = model.get_targets(sample, [student_logits]).view(-1)
         sample_size = targets.numel()
-
+    
         # MSKIM Loss Calculation 
         if not self.regression_target:
             lprobs = F.log_softmax(student_logits, dim=-1, dtype=torch.float32)

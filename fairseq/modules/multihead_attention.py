@@ -69,6 +69,7 @@ class MultiheadAttention(nn.Module):
         )
         
         # MSKIM QKV Quantization
+        
         if self.senqnn_config['quantize'] and self.senqnn_config['qkv_quantize']:
             if self.senqnn_config['method'] == 1:
                 self.k_proj = self.ops.QLinear(self.kdim, embed_dim, bias=bias)
@@ -125,9 +126,9 @@ class MultiheadAttention(nn.Module):
             nn.init.xavier_normal_(self.bias_k)
         if self.bias_v is not None:
             nn.init.xavier_normal_(self.bias_v)
-
+        
         # MSKIM Clip Val Re-Initialziation (Weight Init)
-        if self.senqnn_config['qkv_quantize'] and self.senqnn_config['method'] == 0:
+        if self.senqnn_config['quantize'] and self.senqnn_config['qkv_quantize'] and self.senqnn_config['method'] == 0:
             self.k_proj.quant_weight.init()
             self.v_proj.quant_weight.init()
             self.q_proj.quant_weight.init()

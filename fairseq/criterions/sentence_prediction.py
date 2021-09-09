@@ -32,7 +32,7 @@ class SentencePredictionCriterion(FairseqCriterion):
                             help='name of the classification head to use')
         # fmt: on
 
-    def forward(self, model, sample, model_t=None, reduce=True):
+    def forward(self, model, sample, model_t=None, reduce=True, args=None):
         """Compute the loss for the given sample.
 
         Returns a tuple with three elements:
@@ -53,7 +53,7 @@ class SentencePredictionCriterion(FairseqCriterion):
         )
 
         loss_kd = 0
-        
+       
         if model_t is not None:
             # MSKIM Teacher Inference 
             with torch.no_grad():
@@ -65,7 +65,6 @@ class SentencePredictionCriterion(FairseqCriterion):
                 )
             
             # MSKIM DIstillation Start
-            loss_kd = 0
             cls_loss = 0
             att_loss = 0
             rep_loss = 0
@@ -75,8 +74,6 @@ class SentencePredictionCriterion(FairseqCriterion):
                 cls_loss = soft_cross_entropy(student_logits, teacher_logits)
             else:
                 cls_loss = F.mse_loss(student_logits, teacher_logits)
-            
-            loss_kd = cls_loss
 
             # Attention Score Distill
             for student_att, teacher_att in zip(student_atts, teacher_atts):
@@ -92,8 +89,20 @@ class SentencePredictionCriterion(FairseqCriterion):
                 tmp_loss = F.mse_loss(student_rep, teacher_rep)
                 rep_loss += tmp_loss
             
-            loss_kd += att_loss + rep_loss
-        
+            if args.kd == "all":
+                loss_kd = cls_loss + att_loss + rep_loss
+            elif args.kd == "pred":
+                loss_kd = cls_loss
+            elif args.kd == "trm":
+                loss_kd = att_loss + rep_loss
+            elif args.kd == "output":
+                loss_kd = rep_loss
+            elif args.kd == "att":
+                loss_kd = att_loss
+            else:
+                print("KD setting is unspecified!!")
+                loss_kd = 0
+                
         targets = model.get_targets(sample, [student_logits]).view(-1)
         sample_size = targets.numel()
 
@@ -105,7 +114,8 @@ class SentencePredictionCriterion(FairseqCriterion):
             student_logits = student_logits.view(-1).float()
             targets = targets.float()
             loss_class = F.mse_loss(student_logits, targets, reduction='sum')
-
+        
+        # Loss
         loss = loss_class + loss_kd
         
         logging_output = {
@@ -122,7 +132,6 @@ class SentencePredictionCriterion(FairseqCriterion):
             logging_output['tn'] = ((preds == 0) & (targets == 0)).sum()
             logging_output['fp'] = ((preds == 1) & (targets == 0)).sum()
             logging_output['fn'] = ((preds == 0) & (targets == 1)).sum()
-
 
         return loss, sample_size, logging_output
 

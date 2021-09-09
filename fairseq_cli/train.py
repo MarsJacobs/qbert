@@ -50,7 +50,6 @@ logger = logging.getLogger("fairseq_cli.train")
 
 def make_log(run, model, epoch, loss_func, accuracy, writer_param, loss):
 
-    
     for module in model.named_modules():
         if 'Q_Linear' in module[1].__class__.__name__ or 'Q_Embedding' in module[1].__class__.__name__ or 'custom_linear' in module[1].__class__.__name__ or 'custom_embedding' in module[1].__class__.__name__:
             writer_param.add_histogram(module[0][25:] + '_weight', module[1].weight_buffer.avg, epoch)
@@ -78,6 +77,7 @@ def make_log(run, model, epoch, loss_func, accuracy, writer_param, loss):
     run["metrics/loss"].log(loss)
 
 def make_filename(quant_options):
+
     if quant_options['quantize'] and quant_options['method'] == 0:
         bits = quant_options['nbits_w']
         ffn = str(quant_options['ffn_quantize'])
@@ -85,8 +85,9 @@ def make_filename(quant_options):
         emb = str(quant_options['emb_quantize'])
 
         file_name = '_' + str(bits) + '_' + 'F_' + ffn + '_' + 'Q_' + qkv + '_' + 'E_' + emb 
-
-        return file_name
+    else:
+        file_name = "Full_Precision"
+    return file_name
 
 
 
@@ -106,7 +107,7 @@ def main(args):
     
     quant_options = dict(**literal_eval(args.senqnn_config))
     suffix = make_filename(quant_options)
-
+    
     writer_param = SummaryWriter(log_dir = "output_tensorboard/" + args.data + "/", filename_suffix = suffix)
     
     metrics.reset()
@@ -133,6 +134,7 @@ def main(args):
     if args.teacher == "none":
         senqnn_config = dict_senqnn_config
         model = task.build_model(args, QuantOps)
+        model_t = None
 
     elif args.teacher == "self":
         senqnn_config = dict_senqnn_config

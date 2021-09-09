@@ -54,7 +54,10 @@ class Trainer(object):
         self._criterion = criterion
         self._model = model
         
-        self.model_t = model_t.to(device=self.device)
+        if model_t is not None:
+            self.model_t = model_t.to(device=self.device)
+        else:
+            self.model_t = model_t
 
         if self.tpu:
             import torch_xla.core.xla_model as xm
@@ -298,9 +301,11 @@ class Trainer(object):
                 self.get_model().load_state_dict(
                     state["model"], strict=True, args=self.args
                 )
-                self.get_model_t().load_state_dict(
-                    state["model"], strict=True, args=self.args
-                )
+                
+                if self.get_model_t() is not None:
+                    self.get_model_t().load_state_dict(
+                        state["model"], strict=True, args=self.args
+                    )
             
                 if utils.has_parameters(self.get_criterion()):
                     self.get_criterion().load_state_dict(
@@ -484,6 +489,7 @@ class Trainer(object):
                         optimizer=self.optimizer,
                         update_num=self.get_num_updates(),
                         ignore_grad=is_dummy_batch,
+                        args=self.args
                     )
                     del loss
 

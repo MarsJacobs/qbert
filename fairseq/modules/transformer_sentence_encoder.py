@@ -281,7 +281,7 @@ class TransformerSentenceEncoder(nn.Module):
         all_encoder_atts = [] # MSKIM attention scores list
 
         if not last_state_only:
-            inner_states.append(x)
+            inner_states.append(x) # Embedding Output
         
         for layer in self.layers:
             x, layer_attn = layer(x, self_attn_padding_mask=padding_mask)

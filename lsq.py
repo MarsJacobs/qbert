@@ -646,6 +646,7 @@ class custom_linear(nn.Linear):
             return None
 
     def forward(self, inputs):
+        
         if not self.force_fp:
             shape = self.weight.shape 
             qweight = self.quant_weight(self.weight)

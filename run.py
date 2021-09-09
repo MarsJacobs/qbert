@@ -65,6 +65,7 @@ def arg_parse():
     parser.add_argument('--lr_scale', type=int, default=1)
     parser.add_argument('--clip_wd', type=float, default=0.1)
     parser.add_argument('--teacher', type=str, default="none")
+    parser.add_argument('--kd', type=str, default="all")
     
 
     args = parser.parse_args()
@@ -84,7 +85,7 @@ task_specs = {
         'dataset': 'RTE-bin',
         'num_classes': '2',
         'lr': '2e-5',
-        'max_sentences': '4',
+        'max_sentences': '16', # 4
         'total_num_updates': '2036',
         'warm_updates': '122',
     },
@@ -170,6 +171,10 @@ if args.base_model == "roberta":
     model_path = args.model_dir + '/roberta.base/model.pt'    
 elif args.base_model == "sst":
     model_path = args.model_dir + '/SST_FP.pt'
+elif args.base_model == "cola":
+    model_path = args.model_dir + '/CoLA_FP.pt'
+elif args.base_model == "rte":
+    model_path = args.model_dir + '/RTE_FP.pt'
 else:
     print("No Pretrained File Exists!")
 

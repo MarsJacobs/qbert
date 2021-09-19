@@ -55,20 +55,26 @@ def make_log(run, model, epoch, loss_func, accuracy, writer_param, loss):
             writer_param.add_histogram(module[0][25:] + '_weight', module[1].weight_buffer.avg, epoch)
             writer_param.add_histogram(module[0][25:] + '_qweight', module[1].qweight_buffer.avg, epoch)
             #import pdb; pdb.set_trace()
-            run["metrics/Weight/" + module[0][25:]].log(module[1].weight_buffer.avg.abs().mean())
-            run["metrics/Weight/" + module[0][25:] + '_Q'].log(module[1].qweight_buffer.avg.abs().mean())
-            
-            run["metrics/Weight_Loss/" + module[0][25:]].log(loss_func(module[1].weight_buffer.avg, module[1].qweight_buffer.avg).item())
+            if epoch > 0:
+                run["metrics/Weight_max/" + module[0][25:]].log(module[1].weight_buffer.avg.max())
+                run["metrics/Weight_min/" + module[0][25:]].log(module[1].weight_buffer.avg.min())
+                run["metrics/Weight_mean/" + module[0][25:]].log(module[1].weight_buffer.avg.abs().mean())
+
+                run["metrics/Weight_max/" + module[0][25:] + '_Q'].log(module[1].qweight_buffer.avg.max())
+                run["metrics/Weight_min/" + module[0][25:] + '_Q'].log(module[1].qweight_buffer.avg.min())
+                run["metrics/Weight_mean/" + module[0][25:] + '_Q'].log(module[1].qweight_buffer.avg.abs().mean())
+                
+                run["metrics/Weight_Loss/" + module[0][25:]].log(loss_func(module[1].weight_buffer.avg, module[1].qweight_buffer.avg).item())
             
             module[1].weight_buffer.reset()
             module[1].qweight_buffer.reset()
             
 
-    for name, param in model.named_parameters():
-        # if 'weight' in name and not 'clip_val' in name:
-        #     writer_param.add_histogram(name, param.clone().cpu().data.numpy(), epoch)
-        if 'clip_val' in name:        
-            run["metrics/ClipVal/" + name[17:]].log(param)
+    # for name, param in model.named_parameters():
+    #     # if 'weight' in name and not 'clip_val' in name:
+    #     #     writer_param.add_histogram(name, param.clone().cpu().data.numpy(), epoch)
+    #     if 'clip_val' in name:        
+    #         run["metrics/ClipVal/" + name[17:]].log(param)
         
         #run["metrics/lr"].log(trainer._optimizer.param_groups[0]['lr'])
         #run["metrics/Quant/lr"].log(trainer._optimizer.param_groups[-1]['lr'])
@@ -76,7 +82,7 @@ def make_log(run, model, epoch, loss_func, accuracy, writer_param, loss):
     loss = loss
     run["metrics/loss"].log(loss)
 
-def make_filename(quant_options):
+def make_filename(quant_options, run):
 
     if quant_options['quantize'] and quant_options['method'] == 0:
         bits = quant_options['nbits_w']
@@ -84,15 +90,15 @@ def make_filename(quant_options):
         qkv = str(quant_options['qkv_quantize'])
         emb = str(quant_options['emb_quantize'])
 
-        file_name = '_' + str(bits) + '_' + 'F_' + ffn + '_' + 'Q_' + qkv + '_' + 'E_' + emb 
+        file_name = run.get_run_url()[47:] + '_' + str(bits) + '_' + 'F_' + ffn + '_' + 'Q_' + qkv + '_' + 'E_' + emb 
     else:
-        file_name = "Full_Precision"
+        file_name = run.get_run_url()[47:] + '_' + "Full_Precision"
     return file_name
 
 
 
 def main(args):
-
+    loss_func = torch.nn.L1Loss()
     import neptune.new as neptune
     run = neptune.init(project='niceball0827/QRoberta',
                    api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI0YjM0ZTYwMi1kNjQwLTQ4NGYtOTYxMy03Mjc5ZmVkMzY2YTgifQ==')
@@ -104,9 +110,8 @@ def main(args):
 
     from torch.utils.tensorboard import SummaryWriter
     
-    
     quant_options = dict(**literal_eval(args.senqnn_config))
-    suffix = make_filename(quant_options)
+    suffix = make_filename(quant_options, run)
     
     writer_param = SummaryWriter(log_dir = "output_tensorboard/" + args.data + "/", filename_suffix = suffix)
     
@@ -120,7 +125,7 @@ def main(args):
     
     # Print args
     logger.info(args)
-
+    
     # Setup task, e.g., translation, language modeling, etc.
     task = tasks.setup_task(args)
     
@@ -145,13 +150,15 @@ def main(args):
         model_t = task.build_model(args, QuantOps) # Teacher Model 
     
     criterion = task.build_criterion(args)
-    
+
     # PACT Quantization Initialization
     if senqnn_config['method'] == 1:
         for name, module in model.named_modules():
             if isinstance(module, (QuantOps.QLinear, QuantOps.QEmbedding)):
                 module.initialize(senqnn_config['nbits_w'], senqnn_config['weight_clip_init_val'], -1*senqnn_config['weight_clip_init_val'])
 
+    # Init Value Logging 
+    make_log(run, model, 0, loss_func, 0, writer_param,  0)
 
     #logger.info(model)
     logger.info("task: {} ({})".format(args.task, task.__class__.__name__))
@@ -213,7 +220,7 @@ def main(args):
 
         # Make Log MSKIM
         accuracy = valid_losses
-        loss_func = torch.nn.L1Loss()
+        
         make_log(run, model, epoch_itr.next_epoch_idx -1, loss_func, accuracy, writer_param, epoch_losses)
 
         if should_stop:
@@ -293,11 +300,18 @@ def train(args, trainer, task, epoch_itr, run):
     should_stop = False
     num_updates = trainer.get_num_updates()
     for i, samples in enumerate(progress):
+        
         with metrics.aggregate("train_inner"), torch.autograd.profiler.record_function(
             "train_step-%d" % i
         ):
             log_output = trainer.train_step(samples, run = run)
 
+            for name, param in trainer.model.named_parameters():
+                if i % 10 == 0: # MSKIM Clip Value Step Wise Logging
+                    if 'clip_val' in name:
+                        run["metrics/ClipVal/grad/" + name[17:]].log(param.grad)
+                        run["metrics/ClipVal/" + name[17:]].log(param)
+                         
         if log_output is not None:  # not OOM, overflow, ...
             # log mid-epoch stats
             num_updates = trainer.get_num_updates()
@@ -415,19 +429,23 @@ def validate(args, trainer, task, epoch_itr, subsets):
 
         # log validation stats
         stats = get_valid_stats(args, trainer, agg.get_smoothed_values())
-        
         # MSKIM Add Other Stats
         if task.args.best_checkpoint_metric == 'f1':
-            tn = stats['tn']; tp = stats['tp']; fp = stats['fp']; fn = stats['fn']
+            tn = stats['tn']; tp = stats['tp']; fp = stats['fp']; fn = stats['false'] - stats['fp']
             f1 = 100 * tp/(tp+0.5*(fp+fn))
             stats['f1'] = f1
+
         if task.args.best_checkpoint_metric == 'mcc':
-            tn = stats['tn']; tp = stats['tp']; fp = stats['fp']; fn = stats['fn']
+            tn = stats['tn']; tp = stats['tp']; fp = stats['fp']; fn = stats['false'] - stats['fp']
             n = tn+tp+fn+fp
             s = (tp+fn) / float(n)
             p = (tp+fp)/float(n)
-            mcc = 100 * (tp/float(n)-s*p)/math.sqrt(p*s*(1-s)*(1-p))
-            stats["mcc"] = mcc
+            if s == 0 or p == 0 or tp ==0 :
+                stats['mcc'] = 0
+            else:
+                mcc = 100 * (tp/float(n)-s*p)/math.sqrt(p*s*(1-s)*(1-p))
+                stats["mcc"] = mcc
+
         if task.args.best_checkpoint_metric == 'corr':
             init_logit_tensor = torch.zeros(len(logit_list[0]), device='cuda:0') 
             init_target_tensor = torch.zeros(len(target_list[0]), device='cuda:0')
@@ -452,7 +470,7 @@ def validate(args, trainer, task, epoch_itr, subsets):
                 else:
                     s = np.array(s.cpu())
                     target_tensor = np.concatenate((target_tensor, s), axis = None)
-#            import pdb; pdb.set_trace() 
+
             logit_array = logit_tensor[len(logit_list[0]):,]
             target_array = target_tensor[len(target_list[0]):,]
             pearson_corr = pearsonr(logit_array, target_array)

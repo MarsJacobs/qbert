@@ -194,6 +194,7 @@ class TransformerSentenceEncoder(nn.Module):
 
         for layer in range(n_trans_layers_to_freeze):
             freeze_module_params(self.layers[layer])
+        
 
     def build_embedding(self, vocab_size, embedding_dim, padding_idx, senqnn_config=None):
         if self.senqnn_config['quantize'] and self.senqnn_config['emb_quantize']:
@@ -245,7 +246,7 @@ class TransformerSentenceEncoder(nn.Module):
         last_state_only: bool = False,
         positions: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-
+        
         # compute padding mask. This is needed for multi-head attention
         padding_mask = tokens.eq(self.padding_idx)
         if not self.traceable and not self.tpu and not padding_mask.any():
@@ -258,7 +259,7 @@ class TransformerSentenceEncoder(nn.Module):
 
         if self.embed_positions is not None:
             x += self.embed_positions(tokens, positions=positions)
-
+        
         if self.segment_embeddings is not None and segment_labels is not None:
             x += self.segment_embeddings(segment_labels)
 

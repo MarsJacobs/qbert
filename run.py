@@ -85,15 +85,15 @@ task_specs = {
     'RTE' : {
         'dataset': 'RTE-bin',
         'num_classes': '2',
-        'lr': '2e-5',
-        'max_sentences': '16', # 4
+        'lr': '2e-5', # 2e-5
+        'max_sentences': '16', # 4 # 32
         'total_num_updates': '2036',
         'warm_updates': '122',
     },
     'SST-2' : {
         'dataset': 'SST-2-bin',
         'num_classes': '2',
-        'lr': '1e-6',
+        'lr': '1e-5', # 1e-6 -> 1e-05
         'max_sentences': '32',
         'total_num_updates': '20935',
         'warm_updates': '1256'
@@ -190,6 +190,8 @@ if args.task in ["MRPC", "QQP"]:
     best_metric = "f1"
 if args.task in ["STS-B"]:
     best_metric = "corr"
+if args.task in ["CoLA"]:
+    best_metric = "mcc"
 
 ###############################################################
 
@@ -214,7 +216,7 @@ subprocess_args = [
     '--total-num-update', total_num_updates, '--warmup-updates', warm_updates,
     '--max-epoch',  max_epochs,
     '--find-unused-parameters',  
-    '--best-checkpoint-metric', 'accuracy', 
+    '--best-checkpoint-metric', best_metric, 
     '--save-dir', ckpt_dir, 
     '--log-file', log_file,
     '--dropout', str(args.dropout), '--attention-dropout', str(args.attn_dropout),

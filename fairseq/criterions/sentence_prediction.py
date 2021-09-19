@@ -128,6 +128,7 @@ class SentencePredictionCriterion(FairseqCriterion):
             'nsentences': sample_size,
             'sample_size': sample_size,
         }
+        
         if not self.regression_target:
             preds = student_logits.argmax(dim=1)
             logging_output['ncorrect'] = (preds == targets).sum()

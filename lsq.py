@@ -67,7 +67,7 @@ class quantization(nn.Module):
         self.boundary = getattr(self.args, self.tag + '_boundary', None)
         
         self.weight = weight # MSKIM Weight for initialization
-
+        
         if self.bit is None:
             self.bit = senqnn_config['nbits_w']
 
@@ -139,8 +139,8 @@ class quantization(nn.Module):
         self.init()
         self.level_num.fill_(self.num_levels)
 
-        self.logger.info("half_range({}), bit({}), num_levels({}), quant_group({}) boundary({}) scale({}) ratio({}) tag({})".format(
-            self.half_range, self.bit, self.num_levels, self.quant_group, self.boundary, self.scale, self.ratio, self.tag))
+        # self.logger.info("half_range({}), bit({}), num_levels({}), quant_group({}) boundary({}) scale({}) ratio({}) tag({})".format(
+        #     self.half_range, self.bit, self.num_levels, self.quant_group, self.boundary, self.scale, self.ratio, self.tag))
         if 'debug' in getattr(self.args, 'keyword', []):
             self.logger.info("adaptive({}) grad_scale({}) grad_type({}) norm_group({}) progressive({})".format(
                 self.adaptive, self.grad_scale, self.grad_type, self.norm_group, self.progressive))
@@ -162,9 +162,9 @@ class quantization(nn.Module):
         self.method = 'dorefa'
         self.gamma = 1.
         
-        self.boundary = (self.weight.detach().abs().mean() * 2) / ((self.grad_num_levels - 1) ** 0.5) # MSKIM LSQ Weight Intialization
+        self.boundary = (self.weight.detach().abs().mean() * 2 * self.senqnn_config['init_scaling']) / ((self.grad_num_levels - 1) ** 0.5) # MSKIM LSQ Weight Intialization
         
-        self.logger.info('update %s_boundary %r' % (self.tag, self.boundary))
+        #self.logger.info('update %s_boundary %r' % (self.tag, self.boundary))
         
         self.grad_factor = {
                 'none': 1.0,
@@ -457,8 +457,8 @@ class quantization(nn.Module):
                 
                 
                 # Add Gradient Scaling MSKIM
-                if self.senqnn_config['gradient_scaling']:
-                    grad_factor = 1 / (((self.level_num.item() -1) * x.numel()) ** 0.5)
+                if self.senqnn_config['gradient_scaling'] is not None:
+                    grad_factor = self.senqnn_config['gradient_scaling'] / (((self.grad_num_levels -1) * x.numel()) ** 0.5)
                     #grad_factor = 1
                 else:
                     grad_factor = 1

@@ -103,12 +103,12 @@ class FairseqOptimizer(object):
         """Clips gradient norm."""
         return utils.clip_grad_norm_(self.params, max_norm, aggregate_norm_fn)
 
-    def step(self, closure=None, scale=1.):
+    def step(self, closure=None, scale=1., run=None):
         """Performs a single optimization step."""
         if self.supports_step_with_scale:
             self.optimizer.step(closure, scale=scale)
         else:
-            self.optimizer.step(closure)
+            self.optimizer.step(closure, run=run)
 
     def zero_grad(self):
         """Clears the gradients of all optimized parameters."""

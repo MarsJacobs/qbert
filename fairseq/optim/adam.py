@@ -133,7 +133,7 @@ class Adam(torch.optim.Optimizer):
     def supports_flat_params(self):
         return True
 
-    def step(self, closure=None):
+    def step(self, closure=None, run=None):
         """Performs a single optimization step.
 
         Arguments:
@@ -149,9 +149,11 @@ class Adam(torch.optim.Optimizer):
         #         print("clip val lr is {}".format(group['lr']))
         #     if i == 0:
         #         print("other val lr is {}".format(group['lr']))
-
+        i = 0
         for group in self.param_groups:
+            j=0
             for p in group['params']:
+            
                 if p.grad is None:
                     continue
 
@@ -210,8 +212,14 @@ class Adam(torch.optim.Optimizer):
                     p_data_fp32.add_(p_data_fp32, alpha=-group['weight_decay'] * group['lr']) # MSKIM add weight decay
 
                 p_data_fp32.addcdiv_(exp_avg, denom, value=-step_size)
+                
+                updates = exp_avg / denom * -step_size
 
+                # if i==1:
+                #     run["metrics/ClipVal/Update_" + str(j) ].log(updates)
                 if p.data.dtype in {torch.float16, torch.bfloat16}:
                     p.data.copy_(p_data_fp32)
+                j +=1
+            i += 1
 
         return loss

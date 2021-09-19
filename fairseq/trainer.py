@@ -577,12 +577,12 @@ class Trainer(object):
             ):
                 self._check_grad_norms(grad_norm)
 
-            run["metrics/lr"].log(self.optimizer.param_groups[0]['lr'])
-            run["metrics/Qlr"].log(self.optimizer.param_groups[1]['lr'])
-
+            # run["metrics/lr"].log(self.optimizer.param_groups[0]['lr'])
+            # run["metrics/Qlr"].log(self.optimizer.param_groups[1]['lr'])
+            
             with torch.autograd.profiler.record_function("optimizer"):
                 # MSKIM take an optimization step
-                self.optimizer.step() # MSKIM step
+                self.optimizer.step(run=run) # MSKIM step
 
         except FloatingPointError:
             # re-run the forward and backward pass with hooks attached to print

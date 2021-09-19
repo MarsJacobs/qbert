@@ -120,6 +120,7 @@ class RobertaModel(FairseqEncoderModel):
         x, inner_states, all_encoder_atts = self.encoder(src_tokens, features_only, return_all_hiddens, **kwargs)
         # extra contains all inner states
 
+        
         if classification_head_name is not None:
             x = self.classification_heads[classification_head_name](x)
         return x, inner_states, all_encoder_atts

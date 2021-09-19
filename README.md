@@ -85,5 +85,6 @@ SST-2 | 90.4 | 91.2(+0.8) | 91.2(+0.8) | 91.4(+1) | 91.4(+1) | 91.2(+0.8)
 
 ### TODO
 - Task Specific Quantization Setting Optimization
+- KD Effects Sweep Experiments
 
-Updated(13 SEP 2021)
+Updated(19 SEP 2021)

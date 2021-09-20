@@ -48,7 +48,7 @@ logger = logging.getLogger("fairseq_cli.train")
 # ========================================================================= #
 
 
-def make_log(run, model, epoch, loss_func, accuracy, writer_param, loss):
+def make_log(run, model, epoch, loss_func, accuracy, writer_param, loss, log_output=None):
 
     for module in model.named_modules():
         if 'Q_Linear' in module[1].__class__.__name__ or 'Q_Embedding' in module[1].__class__.__name__ or 'custom_linear' in module[1].__class__.__name__ or 'custom_embedding' in module[1].__class__.__name__:
@@ -56,12 +56,12 @@ def make_log(run, model, epoch, loss_func, accuracy, writer_param, loss):
             writer_param.add_histogram(module[0][25:] + '_qweight', module[1].qweight_buffer.avg, epoch)
             #import pdb; pdb.set_trace()
             if epoch > 0:
-                run["metrics/Weight_max/" + module[0][25:]].log(module[1].weight_buffer.avg.max())
-                run["metrics/Weight_min/" + module[0][25:]].log(module[1].weight_buffer.avg.min())
+                #$run["metrics/Weight_max/" + module[0][25:]].log(module[1].weight_buffer.avg.max())
+                #run["metrics/Weight_min/" + module[0][25:]].log(module[1].weight_buffer.avg.min())
                 run["metrics/Weight_mean/" + module[0][25:]].log(module[1].weight_buffer.avg.abs().mean())
 
-                run["metrics/Weight_max/" + module[0][25:] + '_Q'].log(module[1].qweight_buffer.avg.max())
-                run["metrics/Weight_min/" + module[0][25:] + '_Q'].log(module[1].qweight_buffer.avg.min())
+                #run["metrics/Weight_max/" + module[0][25:] + '_Q'].log(module[1].qweight_buffer.avg.max())
+                #run["metrics/Weight_min/" + module[0][25:] + '_Q'].log(module[1].qweight_buffer.avg.min())
                 run["metrics/Weight_mean/" + module[0][25:] + '_Q'].log(module[1].qweight_buffer.avg.abs().mean())
                 
                 run["metrics/Weight_Loss/" + module[0][25:]].log(loss_func(module[1].weight_buffer.avg, module[1].qweight_buffer.avg).item())
@@ -79,7 +79,11 @@ def make_log(run, model, epoch, loss_func, accuracy, writer_param, loss):
         #run["metrics/lr"].log(trainer._optimizer.param_groups[0]['lr'])
         #run["metrics/Quant/lr"].log(trainer._optimizer.param_groups[-1]['lr'])
     run["metrics/ACC"].log(accuracy)
-    loss = loss
+
+    run["metrics/train_loss/loss"].log(log_output['loss'])
+    run["metrics/train_loss/loss_cls"].log(log_output['loss_class'])
+    run["metrics/train_loss/loss_kd"].log(log_output['loss_kd'])
+    
     run["metrics/loss"].log(loss)
 
 def make_filename(quant_options, run):
@@ -157,9 +161,6 @@ def main(args):
             if isinstance(module, (QuantOps.QLinear, QuantOps.QEmbedding)):
                 module.initialize(senqnn_config['nbits_w'], senqnn_config['weight_clip_init_val'], -1*senqnn_config['weight_clip_init_val'])
 
-    # Init Value Logging 
-    make_log(run, model, 0, loss_func, 0, writer_param,  0)
-
     #logger.info(model)
     logger.info("task: {} ({})".format(args.task, task.__class__.__name__))
     logger.info("model: {} ({})".format(args.arch, model.__class__.__name__))
@@ -216,19 +217,16 @@ def main(args):
     
     while lr > args.min_lr and epoch_itr.next_epoch_idx <= max_epoch:
         
-        valid_losses, should_stop, epoch_losses = train(args, trainer, task, epoch_itr, run)
-
+        accuracy, should_stop, epoch_losses, log_output = train(args, trainer, task, epoch_itr, run)
         # Make Log MSKIM
-        accuracy = valid_losses
-        
-        make_log(run, model, epoch_itr.next_epoch_idx -1, loss_func, accuracy, writer_param, epoch_losses)
+        make_log(run, model, epoch_itr.next_epoch_idx -1, loss_func, accuracy, writer_param, epoch_losses, log_output)
 
         if should_stop:
             break
         
         # only use first validation loss to update the learning rate
         # MSKIM lr step
-        lr = trainer.lr_step(epoch_itr.epoch, valid_losses[0])
+        lr = trainer.lr_step(epoch_itr.epoch, accuracy[0])
 
         epoch_itr = trainer.get_train_iterator(
             epoch_itr.next_epoch_idx,
@@ -305,7 +303,7 @@ def train(args, trainer, task, epoch_itr, run):
             "train_step-%d" % i
         ):
             log_output = trainer.train_step(samples, run = run)
-
+            
             for name, param in trainer.model.named_parameters():
                 if i % 10 == 0: # MSKIM Clip Value Step Wise Logging
                     if 'clip_val' in name:
@@ -338,7 +336,7 @@ def train(args, trainer, task, epoch_itr, run):
 
     # reset epoch-level meters
     metrics.reset_meters("train")
-    return valid_losses, should_stop, epoch_losses # MSKIM add loss
+    return valid_losses, should_stop, epoch_losses, log_output # MSKIM add loss
 
 
 def validate_and_save(args, trainer, task, epoch_itr, valid_subsets, end_of_epoch):
@@ -441,6 +439,7 @@ def validate(args, trainer, task, epoch_itr, subsets):
             s = (tp+fn) / float(n)
             p = (tp+fp)/float(n)
             if s == 0 or p == 0 or tp ==0 :
+                mcc = 0
                 stats['mcc'] = 0
             else:
                 mcc = 100 * (tp/float(n)-s*p)/math.sqrt(p*s*(1-s)*(1-p))

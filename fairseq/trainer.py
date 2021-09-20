@@ -652,7 +652,6 @@ class Trainer(object):
             metrics.log_scalar("loss_scale", self.optimizer.scaler.loss_scale, priority=700, round=0)
 
         metrics.log_stop_time("train_wall")
-
         return logging_output # MSKIM Forward Output
 
     @metrics.aggregate("valid")

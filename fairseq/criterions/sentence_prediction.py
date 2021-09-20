@@ -93,7 +93,8 @@ class SentencePredictionCriterion(FairseqCriterion):
                 tmp_loss = F.mse_loss(student_rep, teacher_rep)
                 rep_loss += tmp_loss
             
-            if args.kd == "all":
+
+            if args.kd == "all" or args.kd == 'kd_only':
                 loss_kd = cls_loss + att_loss + rep_loss
             elif args.kd == "pred":
                 loss_kd = cls_loss
@@ -119,11 +120,18 @@ class SentencePredictionCriterion(FairseqCriterion):
             targets = targets.float()
             loss_class = F.mse_loss(student_logits, targets, reduction='sum')
         
-        # Loss
+        # MSKIM KD Only LOSS Setting
+        if model_t is not None:
+            if args.kd == 'kd_only':
+                loss_class = 0
+        
+        # Loss    
         loss = loss_class + loss_kd
         
         logging_output = {
-            'loss': loss.data,
+            'loss': loss,
+            'class_loss' : loss_class,
+            'kd_loss' : loss_kd,
             'ntokens': sample['ntokens'],
             'nsentences': sample_size,
             'sample_size': sample_size,
@@ -144,11 +152,19 @@ class SentencePredictionCriterion(FairseqCriterion):
     def reduce_metrics(logging_outputs) -> None:
         """Aggregate logging outputs from data parallel training."""
         loss_sum = sum(log.get('loss', 0) for log in logging_outputs)
+        #MSKIM
+        loss_class = sum(log.get('class_loss', 0) for log in logging_outputs)
+        loss_kd = sum(log.get('kd_loss', 0) for log in logging_outputs)
+
         ntokens = sum(log.get('ntokens', 0) for log in logging_outputs)
         nsentences = sum(log.get('nsentences', 0) for log in logging_outputs)
         sample_size = sum(log.get('sample_size', 0) for log in logging_outputs)
 
         metrics.log_scalar('loss', loss_sum / sample_size / math.log(2), sample_size, round=3)
+        #MSKIM
+        metrics.log_scalar('loss_class', loss_class / sample_size / math.log(2), sample_size, round=3)
+        metrics.log_scalar('loss_kd', loss_kd / sample_size / math.log(2), sample_size, round=3)
+
         if sample_size != ntokens:
             metrics.log_scalar('nll_loss', loss_sum / ntokens / math.log(2), ntokens, round=3)
 

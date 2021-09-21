@@ -66,8 +66,8 @@ def arg_parse():
     parser.add_argument('--clip_wd', type=float, default=0.1)
     parser.add_argument('--teacher', type=str, default="none")
     parser.add_argument('--kd', type=str, default="all")
+    parser.add_argument('--kd_num', type=int, default=None)
     
-
     args = parser.parse_args()
     return args
 
@@ -78,6 +78,7 @@ lr_scale = args.lr_scale
 clip_wd = args.clip_wd
 teacher = args.teacher
 kd = args.kd
+kd_num = args.kd_num
 
 ######################## Task specs ##########################
 
@@ -224,7 +225,8 @@ subprocess_args = [
     '--lr_scale', str(lr_scale),
     '--clip_wd', str(clip_wd),
     '--teacher', teacher,
-    '--kd', kd 
+    '--kd', kd,
+    '--kd_num', str(kd_num)
 ]
 
 if args.no_save:

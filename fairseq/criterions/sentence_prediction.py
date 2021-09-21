@@ -80,20 +80,34 @@ class SentencePredictionCriterion(FairseqCriterion):
                 cls_loss = F.mse_loss(student_logits, teacher_logits)
 
             # Attention Score Distill
-            for student_att, teacher_att in zip(student_atts, teacher_atts):
+            for i, (student_att, teacher_att) in enumerate(zip(student_atts, teacher_atts)):
                 student_att = torch.where(student_att <= -1e2, torch.zeros_like(student_att).to("cuda"),
                                             student_att)
                 teacher_att = torch.where(teacher_att <= -1e2, torch.zeros_like(teacher_att).to("cuda"),
                                             teacher_att)
-                tmp_loss = F.mse_loss(student_att, teacher_att)
+
+                if args.kd_num is not None:
+                    if i == args.kd_num:
+                        tmp_loss = F.mse_loss(student_att, teacher_att)
+                    else:
+                        tmp_loss = 0
+                else:    
+                    tmp_loss = F.mse_loss(student_att, teacher_att)
+                
                 att_loss += tmp_loss
             
             # Transformer Layer Output Distill
-            for student_rep, teacher_rep in zip(student_reps['inner_states'], teacher_reps['inner_states']):
-                tmp_loss = F.mse_loss(student_rep, teacher_rep)
+            for i, (student_rep, teacher_rep) in enumerate(zip(student_reps['inner_states'], teacher_reps['inner_states']))
+                if args.kd_num is not None:
+                    if i == args.kd_num:
+                        tmp_loss = F.mse_loss(student_rep, teacher_rep)
+                    else :
+                        tmp_loss = 0
+                else:
+                    tmp_loss = F.mse_loss(student_rep, teacher_rep)
+                    
                 rep_loss += tmp_loss
             
-
             if args.kd == "all" or args.kd == 'kd_only':
                 loss_kd = cls_loss + att_loss + rep_loss
             elif args.kd == "pred":

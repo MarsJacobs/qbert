@@ -277,7 +277,7 @@ def get_parser(desc, default_task="translation"):
     parser.add_argument('--clip_wd', type=float, default=0.1)
     parser.add_argument('--teacher', type=str, default="none")
     parser.add_argument('--kd', type=str, default="all")
-    parser.add_argument('--kd_num', type=int, default=None)
+    parser.add_argument('--kd_num', type=str, default="none")
     
     
     from fairseq.registry import REGISTRIES

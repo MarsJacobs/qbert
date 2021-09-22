@@ -86,8 +86,8 @@ class SentencePredictionCriterion(FairseqCriterion):
                 teacher_att = torch.where(teacher_att <= -1e2, torch.zeros_like(teacher_att).to("cuda"),
                                             teacher_att)
 
-                if args.kd_num is not None:
-                    if i == args.kd_num:
+                if args.kd_num != "none":
+                    if str(i) == args.kd_num:
                         tmp_loss = F.mse_loss(student_att, teacher_att)
                     else:
                         tmp_loss = 0
@@ -95,17 +95,17 @@ class SentencePredictionCriterion(FairseqCriterion):
                     tmp_loss = F.mse_loss(student_att, teacher_att)
                 
                 att_loss += tmp_loss
-            
+        
             # Transformer Layer Output Distill
-            for i, (student_rep, teacher_rep) in enumerate(zip(student_reps['inner_states'], teacher_reps['inner_states']))
-                if args.kd_num is not None:
-                    if i == args.kd_num:
+            for i, (student_rep, teacher_rep) in enumerate(zip(student_reps['inner_states'], teacher_reps['inner_states'])):
+                if args.kd_num != "none":
+                    if str(i) == args.kd_num:
                         tmp_loss = F.mse_loss(student_rep, teacher_rep)
                     else :
                         tmp_loss = 0
                 else:
                     tmp_loss = F.mse_loss(student_rep, teacher_rep)
-                    
+
                 rep_loss += tmp_loss
             
             if args.kd == "all" or args.kd == 'kd_only':
@@ -136,11 +136,11 @@ class SentencePredictionCriterion(FairseqCriterion):
         
         # MSKIM KD Only LOSS Setting
         if model_t is not None:
-            if args.kd == 'kd_only':
-                loss_class = 0
+            #if args.kd == 'kd_only':
+            loss_class = 0
         
         # Loss    
-        loss = loss_class + loss_kd
+        loss = loss_class + loss_kd 
         
         logging_output = {
             'loss': loss,

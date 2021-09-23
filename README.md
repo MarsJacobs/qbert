@@ -63,16 +63,16 @@ Transformer layer outputs(Hidden States), Attention Scores(Attention Weights), P
 Task | FP | -KD | KD | KD Effect | Diff with FP
 -- | -- | -- | -- | -- | --
 SST-2 | 94.6 | 89.4 | 89.9 | 0.5 | 4.7
-CoLA | 61.56 | 0 | 39.74 | - | 21.82
-RTE | 81.2 | 53.1 | 61.7 | 8.6 | 19.5
+CoLA | 61.56 | 13.7 | 52.9 | 39.2 | 8.6
+RTE | 81.2 | 58.8 | 64.6 | 5.8 | 16.6
 
-**FFN 2bit Quantization KD Effects Table**
+**2bit Quantization KD Effects (Different Part Applied) TODO**
 
-Task | FP | -KD | KD | KD Effect | Diff with FP
--- | -- | -- | -- | -- | --
-CoLA(MCC) | 61.56 | 28.52 | 58.05 | 29.53 | 3.51
-RTE | 81.2 | 62.1 | 80.4 | 18.3 | 0.8
-SST-2 | 94.6 | 90.4 | 91.2 | 0.8 | 3.4
+  | -KD | KD(Trm+Logits) | Logits | Trm | Output | Atts
+-- | -- | -- | -- | -- | -- | --
+CoLA | 28.52 | 48.62(+20.1) | 39.85(+11.33) | 58.05(+29.53) | 45.19(+16.67) | 24.42(-4.1)
+RTE | 62.1 | 80.4(+18.3) | 69.1(+7) | 74.4(+12.3) | 72.9(+10.8) | 73.6(+11.5)
+SST-2 | 90.4 | 91.2(+0.8) | 91.2(+0.8) | 91.4(+1) | 91.4(+1) | 91.2(+0.8)
 
 **FFN 2bit Quantization KD Effects (Different Part Applied)**
 

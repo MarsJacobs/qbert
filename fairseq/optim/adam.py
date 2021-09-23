@@ -213,7 +213,7 @@ class Adam(torch.optim.Optimizer):
 
                 p_data_fp32.addcdiv_(exp_avg, denom, value=-step_size)
                 
-                updates = exp_avg / denom * -step_size
+                #updates = exp_avg / denom * -step_size
 
                 # if i==1:
                 #     run["metrics/ClipVal/Update_" + str(j) ].log(updates)

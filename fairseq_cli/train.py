@@ -52,17 +52,17 @@ def make_log(run, model, epoch, loss_func, accuracy, writer_param, loss, log_out
 
     for module in model.named_modules():
         if 'Q_Linear' in module[1].__class__.__name__ or 'Q_Embedding' in module[1].__class__.__name__ or 'custom_linear' in module[1].__class__.__name__ or 'custom_embedding' in module[1].__class__.__name__:
-            writer_param.add_histogram(module[0][25:] + '_weight', module[1].weight_buffer.avg, epoch)
-            writer_param.add_histogram(module[0][25:] + '_qweight', module[1].qweight_buffer.avg, epoch)
-            #import pdb; pdb.set_trace()
+            #writer_param.add_histogram(module[0][25:] + '_weight', module[1].weight_buffer.avg, epoch)
+            #writer_param.add_histogram(module[0][25:] + '_qweight', module[1].qweight_buffer.avg, epoch)
+            
             if epoch > 0:
                 #$run["metrics/Weight_max/" + module[0][25:]].log(module[1].weight_buffer.avg.max())
                 #run["metrics/Weight_min/" + module[0][25:]].log(module[1].weight_buffer.avg.min())
-                run["metrics/Weight_mean/" + module[0][25:]].log(module[1].weight_buffer.avg.abs().mean())
+                #run["metrics/Weight_mean/" + module[0][25:]].log(module[1].weight_buffer.avg.abs().mean())
 
                 #run["metrics/Weight_max/" + module[0][25:] + '_Q'].log(module[1].qweight_buffer.avg.max())
                 #run["metrics/Weight_min/" + module[0][25:] + '_Q'].log(module[1].qweight_buffer.avg.min())
-                run["metrics/Weight_mean/" + module[0][25:] + '_Q'].log(module[1].qweight_buffer.avg.abs().mean())
+                #run["metrics/Weight_mean/" + module[0][25:] + '_Q'].log(module[1].qweight_buffer.avg.abs().mean())
                 
                 run["metrics/Weight_Loss/" + module[0][25:]].log(loss_func(module[1].weight_buffer.avg, module[1].qweight_buffer.avg).item())
             
@@ -78,13 +78,18 @@ def make_log(run, model, epoch, loss_func, accuracy, writer_param, loss, log_out
         
         #run["metrics/lr"].log(trainer._optimizer.param_groups[0]['lr'])
         #run["metrics/Quant/lr"].log(trainer._optimizer.param_groups[-1]['lr'])
+
     run["metrics/ACC"].log(accuracy)
 
-    run["metrics/train_loss/loss"].log(log_output['loss'])
-    run["metrics/train_loss/loss_cls"].log(log_output['loss_class'])
-    run["metrics/train_loss/loss_kd"].log(log_output['loss_kd'])
+    run["metrics/train_loss/ToTal_loss"].log(log_output['loss'])
+    run["metrics/train_loss/GT_loss"].log(log_output['gt_loss'])
     
-    run["metrics/loss"].log(loss)
+    run["metrics/train_loss/kd_loss"].log(log_output['kd_loss'])
+    run["metrics/train_loss/pred_loss"].log(log_output['pred_loss'])
+    run["metrics/train_loss/att_loss"].log(log_output['att_loss'])
+    run["metrics/train_loss/rep_loss"].log(log_output['rep_loss'])
+    
+    run["metrics/eval_loss"].log(loss)
 
 def make_filename(quant_options, run):
 
@@ -103,9 +108,6 @@ def make_filename(quant_options, run):
 
 def main(args):
     loss_func = torch.nn.L1Loss()
-    import neptune.new as neptune
-    run = neptune.init(project='niceball0827/QRoberta',
-                   api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI0YjM0ZTYwMi1kNjQwLTQ4NGYtOTYxMy03Mjc5ZmVkMzY2YTgifQ==')
     
     utils.import_user_module(args)
     assert (
@@ -113,6 +115,10 @@ def main(args):
     ), "Must specify batch size either with --max-tokens or --max-sentences"
 
     from torch.utils.tensorboard import SummaryWriter
+    
+    import neptune.new as neptune
+    run = neptune.init(project='niceball0827/' + args.task_glue,
+                   api_token='eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI0YjM0ZTYwMi1kNjQwLTQ4NGYtOTYxMy03Mjc5ZmVkMzY2YTgifQ==')
     
     quant_options = dict(**literal_eval(args.senqnn_config))
     suffix = make_filename(quant_options, run)
@@ -307,7 +313,7 @@ def train(args, trainer, task, epoch_itr, run):
             for name, param in trainer.model.named_parameters():
                 if i % 10 == 0: # MSKIM Clip Value Step Wise Logging
                     if 'clip_val' in name:
-                        run["metrics/ClipVal/grad/" + name[17:]].log(param.grad)
+                        #run["metrics/ClipVal/grad/" + name[17:]].log(param.grad)
                         run["metrics/ClipVal/" + name[17:]].log(param)
                          
         if log_output is not None:  # not OOM, overflow, ...

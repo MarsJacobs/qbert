@@ -278,6 +278,7 @@ def get_parser(desc, default_task="translation"):
     parser.add_argument('--teacher', type=str, default="none")
     parser.add_argument('--kd', type=str, default="all")
     parser.add_argument('--kd_num', type=str, default="none")
+    parser.add_argument('--task_glue', type=str, default="none")
     
     
     from fairseq.registry import REGISTRIES

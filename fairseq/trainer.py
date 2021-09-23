@@ -75,9 +75,9 @@ class Trainer(object):
         for shared_param in shared_params:
             ref = _get_module_by_path(self._model, shared_param[0])
             for path in shared_param[1:]:
-                logger.info(
-                    'detected shared parameter: {} <- {}'.format(shared_param[0], path)
-                )
+                # logger.info(
+                #     'detected shared parameter: {} <- {}'.format(shared_param[0], path)
+                # )
                 _set_module_by_path(self._model, path, ref)
 
         self._dummy_batch = "DUMMY"  # indicates we don't have a dummy batch at first

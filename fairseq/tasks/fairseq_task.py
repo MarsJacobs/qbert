@@ -386,8 +386,8 @@ class FairseqTask(object):
         if ignore_grad:
             loss *= 0
         with torch.autograd.profiler.record_function("backward"):
-    
             optimizer.backward(loss) # MSKIM Loss Backward
+            
             
             
              

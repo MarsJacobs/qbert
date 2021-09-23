@@ -226,7 +226,8 @@ subprocess_args = [
     '--clip_wd', str(clip_wd),
     '--teacher', teacher,
     '--kd', kd,
-    '--kd_num', str(kd_num)
+    '--kd_num', str(kd_num),
+    '--task_glue', task
 ]
 
 if args.no_save:

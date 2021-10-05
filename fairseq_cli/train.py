@@ -153,6 +153,7 @@ def main(args):
 
     elif args.teacher == "self":
         senqnn_config = dict_senqnn_config
+        
         model = task.build_model(args, QuantOps)
         
         dict_senqnn_config['quantize'] = False
@@ -160,7 +161,7 @@ def main(args):
         model_t = task.build_model(args, QuantOps) # Teacher Model 
     
     criterion = task.build_criterion(args)
-
+    
     # PACT Quantization Initialization
     if senqnn_config['method'] == 1:
         for name, module in model.named_modules():
@@ -432,62 +433,7 @@ def validate(args, trainer, task, epoch_itr, subsets):
                     trainer.valid_step(sample)
 
         # log validation stats
-        stats = get_valid_stats(args, trainer, agg.get_smoothed_values())
-        # MSKIM Add Other Stats
-        if task.args.best_checkpoint_metric == 'f1':
-            tn = stats['tn']; tp = stats['tp']; fp = stats['fp']; fn = stats['false'] - stats['fp']
-            f1 = 100 * tp/(tp+0.5*(fp+fn))
-            stats['f1'] = f1
-
-        if task.args.best_checkpoint_metric == 'mcc':
-            tn = stats['tn']; tp = stats['tp']; fp = stats['fp']; fn = stats['false'] - stats['fp']
-            n = tn+tp+fn+fp
-            s = (tp+fn) / float(n)
-            p = (tp+fp)/float(n)
-            if s == 0 or p == 0 or tp ==0 :
-                mcc = 0
-                stats['mcc'] = 0
-            else:
-                mcc = 100 * (tp/float(n)-s*p)/math.sqrt(p*s*(1-s)*(1-p))
-                stats["mcc"] = mcc
-
-        if task.args.best_checkpoint_metric == 'corr':
-            init_logit_tensor = torch.zeros(len(logit_list[0]), device='cuda:0') 
-            init_target_tensor = torch.zeros(len(target_list[0]), device='cuda:0')
-            logit_tensor = np.array(init_logit_tensor.cpu())
-            target_tensor = np.array(init_target_tensor.cpu())
-#            init_logit_tensor, init_target_tensor = [], []
-            for t in logit_list:
-                if len(t) != len(logit_list[0]):
-                    sup_zeros = torch.zeros(len(logit_list[0])-len(t), device='cuda:0')
-                    t = torch.cat([t,sup_zeros], dim=0)
-                    t = np.array(t.cpu())
-                    logit_tensor = np.concatenate((logit_tensor, t), axis = None) 
-                else:
-                    t = np.array(t.cpu())
-                    logit_tensor = np.concatenate((logit_tensor, t), axis = None) 
-            for s in target_list:
-                if len(s) != len(target_list[0]):
-                    sup_zeros = torch.zeros([len(target_list[0])-len(s)], device='cuda:0')
-                    s = torch.cat([s, sup_zeros], dim=0)
-                    s = np.array(s.cpu())
-                    target_tensor = np.concatenate((target_tensor, s), axis = None)
-                else:
-                    s = np.array(s.cpu())
-                    target_tensor = np.concatenate((target_tensor, s), axis = None)
-
-            logit_array = logit_tensor[len(logit_list[0]):,]
-            target_array = target_tensor[len(target_list[0]):,]
-            pearson_corr = pearsonr(logit_array, target_array)
-            spearman_corr = spearmanr(logit_array, target_array)
-            corr = (pearson_corr[0] + spearman_corr[0]) / 2
-            print("pearson corr :", pearson_corr[0])
-            print("spearman corr :", spearman_corr[0])
-            print("corr :",corr)
-
-
-            stats['corr'] = corr
-
+        stats = get_valid_stats(args, trainer, agg.get_smoothed_values(), task)
 
         progress.print(stats, tag=subset, step=trainer.get_num_updates())
         if args.log_file is not None:
@@ -495,11 +441,11 @@ def validate(args, trainer, task, epoch_itr, subsets):
                 logfile.write("Epoch %s: %s\n" % (str(epoch_itr.epoch), str(stats)))
                 
                 if task.args.best_checkpoint_metric == 'corr':
-                    logfile.write("pearson corr: %s\n" % pearson_corr[0])
-                    logfile.write("spearman corr: %s\n" % spearman_corr[0])
-                    logfile.write("corr: %s\n" % corr)
+                    logfile.write("pearson corr: %s\n" % stats['pearson_corr'])
+                    logfile.write("spearman corr: %s\n" % stats['spearman_corr'])
+                    logfile.write("corr: %s\n" % stats['corr'])
                 if task.args.best_checkpoint_metric == 'mcc':
-                    logfile.write("mcc: %s\n" % mcc)
+                    logfile.write("mcc: %s\n" % stats['mcc'])
 
         valid_losses.append(stats[args.best_checkpoint_metric])
         epoch_losses.append(stats['loss'])
@@ -507,8 +453,64 @@ def validate(args, trainer, task, epoch_itr, subsets):
     return valid_losses, epoch_losses
 
 
-def get_valid_stats(args, trainer, stats):
+def get_valid_stats(args, trainer, stats, task):
     stats["num_updates"] = trainer.get_num_updates()
+    
+    if task.args.best_checkpoint_metric == 'f1':
+            tn = stats['tn']; tp = stats['tp']; fp = stats['fp']; fn = stats['false'] - stats['fp']
+            f1 = 100 * tp/(tp+0.5*(fp+fn))
+            stats['f1'] = f1
+
+    if task.args.best_checkpoint_metric == 'mcc':
+        tn = stats['tn']; tp = stats['tp']; fp = stats['fp']; fn = stats['false'] - stats['fp']
+        n = tn+tp+fn+fp
+        s = (tp+fn) / float(n)
+        p = (tp+fp)/float(n)
+        if s == 0 or p == 0 or tp ==0 :
+            mcc = 0
+            stats['mcc'] = 0
+        else:
+            mcc = 100 * (tp/float(n)-s*p)/math.sqrt(p*s*(1-s)*(1-p))
+            stats["mcc"] = mcc
+
+    if task.args.best_checkpoint_metric == 'corr':
+        init_logit_tensor = torch.zeros(len(logit_list[0]), device='cuda:0') 
+        init_target_tensor = torch.zeros(len(target_list[0]), device='cuda:0')
+        logit_tensor = np.array(init_logit_tensor.cpu())
+        target_tensor = np.array(init_target_tensor.cpu())
+#            init_logit_tensor, init_target_tensor = [], []
+        for t in logit_list:
+            if len(t) != len(logit_list[0]):
+                sup_zeros = torch.zeros(len(logit_list[0])-len(t), device='cuda:0')
+                t = torch.cat([t,sup_zeros], dim=0)
+                t = np.array(t.cpu())
+                logit_tensor = np.concatenate((logit_tensor, t), axis = None) 
+            else:
+                t = np.array(t.cpu())
+                logit_tensor = np.concatenate((logit_tensor, t), axis = None) 
+        for s in target_list:
+            if len(s) != len(target_list[0]):
+                sup_zeros = torch.zeros([len(target_list[0])-len(s)], device='cuda:0')
+                s = torch.cat([s, sup_zeros], dim=0)
+                s = np.array(s.cpu())
+                target_tensor = np.concatenate((target_tensor, s), axis = None)
+            else:
+                s = np.array(s.cpu())
+                target_tensor = np.concatenate((target_tensor, s), axis = None)
+
+        logit_array = logit_tensor[len(logit_list[0]):,]
+        target_array = target_tensor[len(target_list[0]):,]
+        pearson_corr = pearsonr(logit_array, target_array)
+        spearman_corr = spearmanr(logit_array, target_array)
+        corr = (pearson_corr[0] + spearman_corr[0]) / 2
+        print("pearson corr :", pearson_corr[0])
+        print("spearman corr :", spearman_corr[0])
+        print("corr :",corr)
+
+        stats['peason_corr'] = peason_corr[0]
+        stats['spearman_corr'] = spearman_corr[0]
+        stats['corr'] = corr
+
     if hasattr(checkpoint_utils.save_checkpoint, "best"):
         key = "best_{0}".format(args.best_checkpoint_metric)
         best_function = max if args.maximize_best_checkpoint_metric else min

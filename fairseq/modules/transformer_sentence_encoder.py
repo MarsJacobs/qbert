@@ -118,7 +118,8 @@ class TransformerSentenceEncoder(nn.Module):
 
         self.senqnn_config = dict(**literal_eval(senqnn_config))
         self.ops = QuantOps
-
+        
+        
         self.embed_tokens = self.build_embedding(
             self.vocab_size, self.embedding_dim, self.padding_idx, senqnn_config=self.senqnn_config # MSKIM QEmbedding
         )
@@ -197,7 +198,10 @@ class TransformerSentenceEncoder(nn.Module):
         
 
     def build_embedding(self, vocab_size, embedding_dim, padding_idx, senqnn_config=None):
+        
         if self.senqnn_config['quantize'] and self.senqnn_config['emb_quantize']:
+            if self.senqnn_config['method'] == 2:
+                return self.ops.TernaryEmbedding(vocab_size, embedding_dim, padding_idx=padding_idx)
             if self.senqnn_config['method'] == 1:
                 return self.ops.QEmbedding(vocab_size, embedding_dim, padding_idx) # MSKIM Quantize Word Embedding
             if self.senqnn_config['method'] == 0:

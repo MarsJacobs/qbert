@@ -70,6 +70,11 @@ class MultiheadAttention(nn.Module):
         
         # MSKIM QKV Quantization
         if self.senqnn_config['quantize'] and self.senqnn_config['qkv_quantize']:
+            if self.senqnn_config['method'] == 2:
+                self.k_proj = self.ops.TernaryLinear(self.kdim, embed_dim, bias=bias)
+                self.v_proj = self.ops.TernaryLinear(self.vdim, embed_dim, bias=bias)
+                self.q_proj = self.ops.TernaryLinear(embed_dim, embed_dim, bias=bias)
+                self.out_proj = self.ops.TernaryLinear(embed_dim, embed_dim, bias=bias)
             if self.senqnn_config['method'] == 1:
                 self.k_proj = self.ops.QLinear(self.kdim, embed_dim, bias=bias)
                 self.v_proj = self.ops.QLinear(self.vdim, embed_dim, bias=bias)

@@ -1,6 +1,7 @@
 from collections import namedtuple
 import math
 from lsq import custom_linear, custom_embedding
+from utils_quant import TwnQuantizer, QuantizeLinear, QuantizeEmbedding
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -380,4 +381,6 @@ class QuantOps(object):
     QEmbedding = Q_Embedding
     LSQLinear = custom_linear
     LSQEmbedding = custom_embedding
+    TernaryLinear = QuantizeLinear
+    TernaryEmbedding = QuantizeEmbedding
 

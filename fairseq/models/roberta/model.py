@@ -28,7 +28,7 @@ from fairseq.modules.quant_noise import quant_noise as apply_quant_noise_
 
 from .hub_interface import RobertaHubInterface
 
-
+from ast import literal_eval
 logger = logging.getLogger(__name__)
 
 
@@ -44,9 +44,10 @@ class RobertaModel(FairseqEncoderModel):
             'roberta.large.wsc': 'http://dl.fbaipublicfiles.com/fairseq/models/roberta.large.wsc.tar.gz',
         }
 
-    def __init__(self, args, encoder):
+    def __init__(self, args, encoder, QuantOps):
         super().__init__(encoder)
         self.args = args
+        self.ops = QuantOps
 
         # We follow BERT's random weight initialization
         self.apply(init_bert_params)
@@ -110,7 +111,7 @@ class RobertaModel(FairseqEncoderModel):
             args.max_positions = args.tokens_per_sample
 
         encoder = RobertaEncoder(args, task.source_dictionary, QuantOps)
-        return cls(args, encoder)
+        return cls(args, encoder, QuantOps=QuantOps) # MSKIM Add QuantOps to apply Quantization to Classification Layer
 
     def forward(self, src_tokens, features_only=False, return_all_hiddens=False, classification_head_name=None, **kwargs):
         
@@ -153,6 +154,8 @@ class RobertaModel(FairseqEncoderModel):
             self.args.pooler_dropout,
             self.args.quant_noise_pq,
             self.args.quant_noise_pq_block_size,
+            QuantOps=self.ops,
+            senqnn_config=self.args.senqnn_config
         )
 
     @property
@@ -238,7 +241,7 @@ class RobertaLMHead(nn.Module):
     def __init__(self, embed_dim, output_dim, activation_fn, weight=None):
         super().__init__()
         self.dense = nn.Linear(embed_dim, embed_dim)
-        self.activation_fn = utils.get_activation_fn(activation_fn)
+        self.activation_fn = utils.get_activation_fn(activation_fn) # gelu
         self.layer_norm = LayerNorm(embed_dim)
 
         if weight is None:
@@ -251,7 +254,7 @@ class RobertaLMHead(nn.Module):
         # saves both memory and computation
         if masked_tokens is not None:
             features = features[masked_tokens, :]
-
+        
         x = self.dense(features)
         x = self.activation_fn(x)
         x = self.layer_norm(x)
@@ -263,9 +266,20 @@ class RobertaLMHead(nn.Module):
 class RobertaClassificationHead(nn.Module):
     """Head for sentence-level classification tasks."""
 
-    def __init__(self, input_dim, inner_dim, num_classes, activation_fn, pooler_dropout, q_noise=0, qn_block_size=8):
+    def __init__(self, input_dim, inner_dim, num_classes, activation_fn, pooler_dropout, q_noise=0, qn_block_size=8, QuantOps=None, senqnn_config=None):
         super().__init__()
-        self.dense = nn.Linear(input_dim, inner_dim)
+        
+        self.senqnn_config = dict(**literal_eval(senqnn_config))
+        
+        if self.senqnn_config['quantize'] and self.senqnn_config['classifier_dense']:
+            if self.senqnn_config['method'] == 2:
+                self.dense = QuantOps.TernaryLinear(input_dim, inner_dim) # Ternary
+            if self.senqnn_config['method'] == 1:
+                self.dense = QuantOps.QLinear(input_dim, inner_dim) # MKSIM FFNN Weight Quantization
+            if self.senqnn_config['method'] == 0:
+                self.dense = QuantOps.LSQLinear(input_dim, inner_dim, senqnn_config = self.senqnn_config) 
+        
+        #self.dense = nn.Linear(input_dim, inner_dim) # Quantization...
         self.activation_fn = utils.get_activation_fn(activation_fn)
         self.dropout = nn.Dropout(p=pooler_dropout)
         self.out_proj = apply_quant_noise_(
@@ -304,7 +318,7 @@ class RobertaEncoder(FairseqEncoder):
             activation_dropout=args.activation_dropout,
             layerdrop=args.encoder_layerdrop,
             max_seq_len=args.max_positions,
-            num_segments=0,
+            num_segments=2, # why 0? MSKIM
             encoder_normalize_before=True,
             apply_bert_init=True,
             activation_fn=args.activation_fn,
@@ -340,6 +354,7 @@ class RobertaEncoder(FairseqEncoder):
         """
         
         x, inner_states, all_encoder_atts = self.extract_features(src_tokens, return_all_hiddens=return_all_hiddens)
+        
         if not features_only:
             x = self.output_layer(x, masked_tokens=masked_tokens)
         return x, inner_states, all_encoder_atts

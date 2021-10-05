@@ -89,6 +89,8 @@ class TransformerSentenceEncoderLayer(nn.Module):
         
     def build_fc1(self, input_dim, output_dim, q_noise, qn_block_size):
         if self.senqnn_config['quantize'] and self.senqnn_config['ffn_quantize']:
+            if self.senqnn_config['method'] == 2:
+                return self.ops.TernaryLinear(input_dim, output_dim) # Ternary
             if self.senqnn_config['method'] == 1:
                 return self.ops.QLinear(input_dim, output_dim) # MKSIM FFNN Weight Quantization
             if self.senqnn_config['method'] == 0:
@@ -100,6 +102,8 @@ class TransformerSentenceEncoderLayer(nn.Module):
 
     def build_fc2(self, input_dim, output_dim, q_noise, qn_block_size):
         if self.senqnn_config['quantize'] and self.senqnn_config['ffn_quantize']:
+            if self.senqnn_config['method'] == 2:
+                return self.ops.TernaryLinear(input_dim, output_dim) # Ternary
             if self.senqnn_config['method'] == 1:
                 return self.ops.QLinear(input_dim, output_dim) # MKSIM FFNN Weight Quantization
             if self.senqnn_config['method'] == 0:

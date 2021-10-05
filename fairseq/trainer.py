@@ -452,7 +452,8 @@ class Trainer(object):
 
         # forward and backward pass
         logging_outputs, sample_size, ooms = [], 0, 0
-        for i, sample in enumerate(samples): #MSKIM 1 Batch 
+        for i, sample in enumerate(samples): #MSKIM 1 Batch
+            
             sample = self._prepare_sample(sample)
             if sample is None:
                 # when sample is None, run forward/backward on a dummy batch
@@ -577,8 +578,8 @@ class Trainer(object):
             ):
                 self._check_grad_norms(grad_norm)
 
-            # run["metrics/lr"].log(self.optimizer.param_groups[0]['lr'])
-            # run["metrics/Qlr"].log(self.optimizer.param_groups[1]['lr'])
+            run["metrics/lr"].log(self.optimizer.param_groups[0]['lr'])
+            run["metrics/Qlr"].log(self.optimizer.param_groups[1]['lr'])
             
             with torch.autograd.profiler.record_function("optimizer"):
                 # MSKIM take an optimization step

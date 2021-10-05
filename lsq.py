@@ -441,7 +441,7 @@ class quantization(nn.Module):
                     y = x / clip_val
                     y = self.clamp(y, min=-1, max=1)
                     y = (y + 1.0) / 2.0
-                    y = self.quant.apply(y, self.level_num.item() - 1)
+                    y = self.quant.apply(y, self.level_num.item() - 1) # rounding
                     y = y * 2.0 - 1.0
                     y = y * clip_val
                 

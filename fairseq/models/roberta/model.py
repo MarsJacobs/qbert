@@ -202,7 +202,7 @@ class RobertaModel(FairseqEncoderModel):
             head_name = k[len(prefix + 'classification_heads.'):].split('.')[0]
             num_classes = state_dict[prefix + 'classification_heads.' + head_name + '.out_proj.weight'].size(0)
             inner_dim = state_dict[prefix + 'classification_heads.' + head_name + '.dense.weight'].size(0)
-
+            
             if getattr(self.args, 'load_checkpoint_heads', False):
                 if head_name not in current_head_names:
                     self.register_classification_head(head_name, num_classes, inner_dim)
@@ -278,8 +278,8 @@ class RobertaClassificationHead(nn.Module):
                 self.dense = QuantOps.QLinear(input_dim, inner_dim) # MKSIM FFNN Weight Quantization
             if self.senqnn_config['method'] == 0:
                 self.dense = QuantOps.LSQLinear(input_dim, inner_dim, senqnn_config = self.senqnn_config) 
-        
-        #self.dense = nn.Linear(input_dim, inner_dim) # Quantization...
+        else:
+            self.dense = nn.Linear(input_dim, inner_dim) # Quantization...
         self.activation_fn = utils.get_activation_fn(activation_fn)
         self.dropout = nn.Dropout(p=pooler_dropout)
         self.out_proj = apply_quant_noise_(

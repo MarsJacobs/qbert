@@ -423,7 +423,7 @@ def validate(args, trainer, task, epoch_itr, subsets):
         # don't pollute other aggregators (e.g., train meters)
         logit_list, target_list = [], []
         with metrics.aggregate(new_root=True) as agg:
-            for sample in progress:
+            for sample in progress:         
                 if task.args.best_checkpoint_metric == 'corr':
                     _, logits, targets = trainer.valid_step(sample)
                     

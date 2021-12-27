@@ -119,7 +119,6 @@ class TransformerSentenceEncoder(nn.Module):
         self.senqnn_config = dict(**literal_eval(senqnn_config))
         self.ops = QuantOps
         
-        
         self.embed_tokens = self.build_embedding(
             self.vocab_size, self.embedding_dim, self.padding_idx, senqnn_config=self.senqnn_config # MSKIM QEmbedding
         )
@@ -275,6 +274,7 @@ class TransformerSentenceEncoder(nn.Module):
 
         x = self.dropout_module(x)
 
+        import pdb; pdb.set_trace()
         # account for padding while computing the representation
         if padding_mask is not None:
             x *= 1 - padding_mask.unsqueeze(-1).type_as(x)

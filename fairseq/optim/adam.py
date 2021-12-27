@@ -204,21 +204,21 @@ class Adam(torch.optim.Optimizer):
                 else:
                     denom = exp_avg_sq.sqrt().add_(group['eps'])
 
-                bias_correction1 = 1 - beta1 ** state['step']
-                bias_correction2 = 1 - beta2 ** state['step']
+                #bias_correction1 = 1 - beta1 ** state['step']
+                #bias_correction2 = 1 - beta2 ** state['step']
 
-                step_size = group['lr'] * math.sqrt(bias_correction2) / bias_correction1 
+                #step_size = group['lr'] * math.sqrt(bias_correction2) / bias_correction1 
 
                 # MSKIM BERT ADAM Modified (No Bias Correction)
-                #update = exp_avg / (exp_avg_sq.sqrt() + group['eps'])
-                #update_with_lr = update * group['lr']
+                update = exp_avg / (exp_avg_sq.sqrt() + group['eps'])
+                update_with_lr = update * group['lr']
 
 
                 if group['weight_decay'] != 0:
                     p_data_fp32.add_(p_data_fp32, alpha=-group['weight_decay'] * group['lr']) # MSKIM add weight decay
 
-                p_data_fp32.addcdiv_(exp_avg, denom, value=-step_size)
-                #p_data_fp32.add_(-update_with_lr)
+                #p_data_fp32.addcdiv_(exp_avg, denom, value=-step_size)
+                p_data_fp32.add_(-update_with_lr)
                 
 
                 # if i==1:

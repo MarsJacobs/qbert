@@ -49,7 +49,7 @@ class SentencePredictionCriterion(FairseqCriterion):
             hasattr(model, 'classification_heads')
             and self.classification_head_name in model.classification_heads
         ), 'model must provide sentence classification head for --criterion=sentence_prediction'
-    
+        import pdb; pdb.set_trace()
         student_logits, student_reps, student_atts = model(
             **sample['net_input'],
             features_only=True,
